@@ -94,6 +94,18 @@ def test_capture_replay():
 
 def test_register_match():
     m = g._register_match
+    # confirmed real-hardware format: echo, then 'RREG:A+D: <addr> <val>'
+    real = "rr 0x03\r\nRREG:A+D: 03 02\r\nGW:9251:"
+    ok("real RREG reply matches", m(real, "0x03", "0x02"))
+    ok("real RREG wrong value fails",
+       not m("rr 0x03\r\nRREG:A+D: 03 05\r\n", "0x03", "0x02"))
+    ok("real RREG wrong addr fails",
+       not m("RREG:A+D: 04 02", "0x03", "0x02"))
+    ok("A+D decoration can't false-match (expected 0x0A)",
+       not m("RREG:A+D: 03 05", "0x03", "0x0A"))
+    ok("A+D decoration can't false-match (expected 0x0D)",
+       not m("RREG:A+D: 03 05", "0x03", "0x0D"))
+    # fallback heuristics for formats without an RREG line
     ok("'0x03 0x02' matches", m("0x03 0x02", "0x03", "0x02"))
     ok("'Reg[0x03] = 0x02' matches", m("Reg[0x03] = 0x02", "0x03", "0x02"))
     ok("'03 02' matches", m("03 02", "0x03", "0x02"))

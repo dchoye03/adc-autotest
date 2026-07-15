@@ -146,21 +146,29 @@ def send(ser: serial.Serial, cmd: str, settle: float = CMD_DELAY) -> str:
 HEX_TOKEN_RE = re.compile(r"\b(?:0x)?([0-9a-fA-F]{1,8})\b")
 
 
-def _register_match(resp: str, addr: str, expected: str) -> bool:
-    """True if some non-echo line of resp reports register addr == expected.
+# confirmed rr reply (real hardware): 'RREG:A+D: 03 02' = addr, value in hex
+RREG_RE = re.compile(r"RREG.*?:\s*([0-9a-fA-F]{1,4})\s+([0-9a-fA-F]{1,4})",
+                     re.IGNORECASE)
 
-    The exact rr reply format is still unconfirmed on hardware, so accept a
-    line that either (a) contains both the address and the expected value as
-    standalone hex tokens, or (b) consists of exactly one hex token equal to
-    the expected value (value-only reply). Lines containing 'rr' (echo, usage)
-    are skipped — a substring check over the whole response would false-pass
-    on the echo, the same trap as quirk #4.
+
+def _register_match(resp: str, addr: str, expected: str) -> bool:
+    """True if resp reports register addr == expected.
+
+    Primary: parse the confirmed 'RREG:A+D: <addr> <val>' reply exactly —
+    and trust ONLY it when present (the 'A'/'D' decorations are valid hex
+    digits, so token heuristics could false-match them). Fallback for any
+    future firmware format: hex-token matching per line, skipping echo/usage
+    lines (word-boundary 'rr' — plain substring would eat 'RREG' too).
     """
     want_addr = int(addr, 16)
     want_val = int(expected, 16)
+    m = RREG_RE.search(resp)
+    if m:
+        return (int(m.group(1), 16) == want_addr
+                and int(m.group(2), 16) == want_val)
     for line in re.split(r"[\r\n]+", resp):
         line = line.strip()
-        if not line or "rr" in line.lower():
+        if not line or re.search(r"\brr\b", line.lower()):
             continue
         toks = [int(t, 16) for t in HEX_TOKEN_RE.findall(line)]
         if not toks:
