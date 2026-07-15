@@ -1,0 +1,14 @@
+# measurement outputs (regenerated every run)
+*.csv
+run_*.log
+capture_debug_*.txt
+
+# excel: reports contain measurement data; commit a blank template explicitly
+# if you want one in the repo
+*.xlsx
+~$*
+
+# local machine stuff
+*.lnk
+__pycache__/
+*.pyc
